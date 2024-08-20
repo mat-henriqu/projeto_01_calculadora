@@ -1,7 +1,7 @@
 import Input from './components/Input';
 import Button from './components/Button';
 
-import { Container, Content, Row, History, Display } from './styled';
+import { Container, Content, Row, History } from './styled';
 import { useState, useEffect, useCallback } from 'react';
 import { evaluate, format, parse } from 'mathjs';
 
@@ -90,9 +90,7 @@ const App = () => {
         <History aria-live="polite">
           {history.length ? history.join(' | ') : (error || formatDisplay(currentNumber))}
         </History>
-        <Display>
           <Input value={currentNumber} />
-        </Display>
         <Row>
           <Button aria-label="Clear" label="C" onClick={handleOnClear} />
           <Button aria-label="Backspace" label="←" onClick={handleBackspace} />
