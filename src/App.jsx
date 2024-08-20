@@ -2,20 +2,12 @@ import Input from './components/Input';
 import Button from './components/Button';
 
 import { Container, Content, Row, History } from './styled';
-import { useState, useEffect, useCallback } from 'react';
-import { evaluate, format, parse } from 'mathjs';
-
-// Função utilitária para formatar o número exibido
-const formatDisplay = (value) => {
-  if (value === 'Infinity') return '∞';
-  if (value === '-Infinity') return '-∞';
-  if (isNaN(value)) return 'Erro';
-  return format(value, { notation: 'fixed', precision: 10 });
-};
+import { useState, useEffect } from 'react';
+import { evaluate, parse, format } from 'mathjs';
 
 const App = () => {
   const [currentNumber, setCurrentNumber] = useState('0');
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -26,7 +18,7 @@ const App = () => {
         handleOnClear();
       } else if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '(', ')'].includes(key)) {
         handleAddNumber(key);
-      } else if (['+', '-', '*', '/'].includes(key)) {
+      } else if (['+', '-', '*', '/', '^'].includes(key)) {
         handleAddOperation(key);
       } else if (key === 'Enter' || key === '=') {
         handleEquals();
@@ -43,12 +35,15 @@ const App = () => {
 
   const handleOnClear = () => {
     setCurrentNumber('0');
+    setHistory('');
     setError('');
   };
 
   const handleAddNumber = (num) => {
     setCurrentNumber(prev => {
       if (prev === '0' && num !== '.' && num !== '(') return num;
+      if (prev === '0' && (num === '.' || num === '(')) return num;
+      if (['+', '-', '*', '/'].includes(prev[prev.length - 1]) && num === '0') return prev;
       if (num === '.' && prev.includes('.')) return prev;
       return prev + num;
     });
@@ -59,9 +54,17 @@ const App = () => {
     setCurrentNumber(prev => {
       const lastChar = prev[prev.length - 1];
       if (['+', '-', '*', '/'].includes(lastChar)) {
-        return prev.slice(0, -1) + op;
+        return prev.slice(0, -1) + (op === '^' ? '**' : op);
       }
-      return prev + op;
+      return prev + (op === '^' ? '**' : op);
+    });
+    setError('');
+  };
+
+  const handleAddFunction = (fn) => {
+    setCurrentNumber(prev => {
+      if (prev === '0') return `${fn}(`;
+      return prev + `${fn}(`;
     });
     setError('');
   };
@@ -71,26 +74,32 @@ const App = () => {
     setError('');
   };
 
-  const handleEquals = useCallback(() => {
+  const handleEquals = () => {
     try {
-      // Verifica e corrige parênteses desequilibrados
-      const parsed = parse(currentNumber);
-      const result = evaluate(parsed);
-      const formattedResult = formatDisplay(result);
-      setHistory(prev => [...prev, `${currentNumber} = ${formattedResult}`]);
-      setCurrentNumber(formattedResult);
+      let expression = currentNumber;
+      expression = expression.replace(/sqrt\(/g, 'sqrt(');
+      
+      // Adiciona o fechamento de parênteses se necessário
+      const openParentheses = (expression.match(/\(/g) || []).length;
+      const closeParentheses = (expression.match(/\)/g) || []).length;
+      if (openParentheses > closeParentheses) {
+        expression += ')'.repeat(openParentheses - closeParentheses);
+      }
+
+      const result = evaluate(expression);
+      setCurrentNumber(String(result));
+      setHistory(`${format(parse(expression))} = ${result}`);
+      setError('');
     } catch (e) {
       setError('Erro: Expressão inválida');
     }
-  }, [currentNumber]);
+  };
 
   return (
     <Container>
       <Content>
-        <History aria-live="polite">
-          {history.length ? history.join(' | ') : (error || formatDisplay(currentNumber))}
-        </History>
-          <Input value={currentNumber} />
+        <History aria-live="polite">{error || history || currentNumber}</History>
+        <Input value={currentNumber} />
         <Row>
           <Button aria-label="Clear" label="C" onClick={handleOnClear} />
           <Button aria-label="Backspace" label="←" onClick={handleBackspace} />
@@ -98,7 +107,7 @@ const App = () => {
         <Row>
           <Button aria-label="(" label="(" onClick={() => handleAddNumber('(')} />
           <Button aria-label=")" label=")" onClick={() => handleAddNumber(')')} />
-          <Button aria-label="^" label="^" onClick={() => handleAddOperation('^')} />
+          <Button aria-label="sqrt" label="√" onClick={() => handleAddFunction('sqrt')} />
           <Button aria-label="Divide" label="/" onClick={() => handleAddOperation('/')} />
         </Row>
         <Row>
